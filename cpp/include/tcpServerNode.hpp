@@ -11,7 +11,7 @@
 #include <mutex>
 #include <string>
 #include <cstdarg>
-#include <WinSock2.h>
+#include "socket_utils.hpp"
 
 class TcpServerNode : public rclcpp::Node {
 public:

@@ -1,10 +1,10 @@
 #pragma once
-#include <WinSock2.h>
 #include <memory>
 #include <string>
 #include <map>
 #include <regex>
 #include <functional>
+#include "socket_utils.hpp"
 #include "unityTcpSender.hpp"
 #include "rosSubscriber.hpp"
 #include "rosPublisher.hpp"

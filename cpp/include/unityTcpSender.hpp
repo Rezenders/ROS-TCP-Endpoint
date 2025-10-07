@@ -9,7 +9,7 @@
 #include <memory>
 #include <chrono>
 #include "statusEvent.hpp"
-#include <WinSock2.h>
+#include "socket_utils.hpp"
 #include "rosCommunication.hpp"
 #include "threadPauser.hpp"
 #include "sysCommands.hpp"

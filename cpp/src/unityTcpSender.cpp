@@ -71,7 +71,7 @@ void UnityTcpSender::sender_loop(SOCKET socket, std::shared_ptr<StatusEvent>& ha
 		while (!halt_event->is_set()) {
 			if (try_remove_from_queue(data)) {
 				if (SOCKET_ERROR == send(socket, data.c_str(), static_cast<int>(data.size()), 0)) {
-					int err = WSAGetLastError();
+					int err = last_socket_error();
 					tcp_server->log_error("socket send error %d", err);
 					if (WSAECONNABORTED == err || WSAECONNRESET == err)
 						break;
@@ -106,7 +106,7 @@ std::string UnityTcpSender::serialize_command(const std::string& command, const 
 	//little endian.  uint32 taille de la command, puis les octets de la commande
 	std::ostringstream oss;
 	append_string(oss, command);
-	//todo: encodage utf - 8 des params, à voir si nécessaire
+	//todo: encodage utf - 8 des params,  voir si ncessaire
 	append_string(oss, params);
 
 	return oss.str();

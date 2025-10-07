@@ -2,6 +2,7 @@
 #include <thread>
 #include <sstream>
 #include <regex>
+#include <array>
 #include "clientThread.hpp"
 #include "tcpServerNode.hpp"
 
@@ -42,8 +43,11 @@ void ClientThread::recvall(char *buffer, int size) {
     while (pos < size) {
         int read = recv(socket, buffer + pos, size - pos, 0);
         if (SOCKET_ERROR == read) {
-            tcp_server->log_error("recvall - Unable to read from socket: %d", WSAGetLastError());
+            tcp_server->log_error("recvall - Unable to read from socket: %d", last_socket_error());
             throw std::runtime_error{"socket error"};
+        }
+        if (read == 0) {
+            throw std::runtime_error{"socket closed"};
         }
         pos += read;
     }
@@ -137,8 +141,12 @@ void ClientThread::run() {
     pending_srv_id = NO_PENDING_SERVICE_ID;
     pending_srv_is_request = false;
 
-    const auto& remote_addr = remote.sin_addr.S_un.S_un_b;
-    tcp_server->log_info("Connection from %hhu.%hhu.%hhu.%hhu:%hu", remote_addr.s_b1, remote_addr.s_b2, remote_addr.s_b3, remote_addr.s_b4, ntohs(remote.sin_port));
+    std::array<char, INET_ADDRSTRLEN> remote_addr{};
+    if (nullptr == inet_ntop(AF_INET, &remote.sin_addr, remote_addr.data(), remote_addr.size())) {
+        tcp_server->log_warning("Failed to convert remote address to string: %d", last_socket_error());
+        remote_addr[0] = '\0';
+    }
+    tcp_server->log_info("Connection from %s:%hu", remote_addr.data(), ntohs(remote.sin_port));
     unity_tcp_sender.start_sender(socket, halt_event);
 
     try {
@@ -191,7 +199,12 @@ void ClientThread::run() {
     halt_event->set();
     closesocket(socket);
     unregister_all();
-    tcp_server->log_info("Disconnected from %hhu.%hhu.%hhu.%hhu:%hu", remote_addr.s_b1, remote_addr.s_b2, remote_addr.s_b3, remote_addr.s_b4, ntohs(remote.sin_port));
+    if (remote_addr[0] == '\0') {
+        if (nullptr == inet_ntop(AF_INET, &remote.sin_addr, remote_addr.data(), remote_addr.size())) {
+            tcp_server->log_warning("Failed to convert remote address to string: %d", last_socket_error());
+        }
+    }
+    tcp_server->log_info("Disconnected from %s:%hu", remote_addr.data(), ntohs(remote.sin_port));
 
     run_is_finished = true;
 }
