@@ -6,6 +6,7 @@
 
 UnityService::UnityService(UnityTcpSender* unity_tcp_sender, const std::string& service_topic, const std::string &service_type, int queue_size)
 	: RosReceiver(unity_tcp_sender, service_topic + "_service", service_topic) {
+    static_cast<void>(queue_size);
 
     // get typesupport informations for request and response types
     ts_lib = rclcpp::get_typesupport_library(service_type, "rosidl_typesupport_cpp");

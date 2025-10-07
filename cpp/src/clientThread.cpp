@@ -94,7 +94,7 @@ void ClientThread::send_ros_service_request(int srv_id, const std::string& desti
     }
 }
 
-void ClientThread::service_call_thread(int srv_id, const std::string& destination, const RosData &data, std::shared_ptr<RosService>& rosService) {
+void ClientThread::service_call_thread(int srv_id, const std::string& destination, const RosData &data, std::shared_ptr<RosService> rosService) {
     RosData response;
     if (!rosService->send(data, response)) {
         std::string error_msg = "No response data from service '" + destination + "'!";
@@ -193,7 +193,7 @@ void ClientThread::run() {
                 }
             }
         }
-    } catch (std::exception ex) {
+    } catch (const std::exception& ex) {
         tcp_server->log_error("exception occured in ClientThread: %s", ex.what());
     }
     halt_event->set();
@@ -210,7 +210,7 @@ void ClientThread::run() {
 }
 
 void ClientThread::register_subscriber(const std::string& topic, const std::string& message_type) {
-    auto& old_node = subscribers_table.find(topic);
+    auto old_node = subscribers_table.find(topic);
     if (old_node != subscribers_table.end()) {
         tcp_server->unregister_node(std::reinterpret_pointer_cast<RosNode>(old_node->second));
     }
@@ -221,7 +221,8 @@ void ClientThread::register_subscriber(const std::string& topic, const std::stri
 }
 
 void ClientThread::register_publisher(const std::string& topic, const std::string& message_type, int queue_size, bool latch) {
-    auto& old_node = publishers_table.find(topic);
+    static_cast<void>(latch);
+    auto old_node = publishers_table.find(topic);
     if (old_node != publishers_table.end()) {
         tcp_server->unregister_node(std::reinterpret_pointer_cast<RosNode>(old_node->second));
     }
@@ -232,7 +233,7 @@ void ClientThread::register_publisher(const std::string& topic, const std::strin
 }
 
 void ClientThread::register_ros_service(const std::string& topic, const std::string& request_message_type) {
-    auto& old_node = ros_services_table.find(topic);
+    auto old_node = ros_services_table.find(topic);
     if (old_node != ros_services_table.end()) {
         tcp_server->unregister_node(std::reinterpret_pointer_cast<RosNode>(old_node->second));
     }
@@ -243,7 +244,7 @@ void ClientThread::register_ros_service(const std::string& topic, const std::str
 }
 
 void ClientThread::register_unity_service(const std::string& topic, const std::string& request_message_type) {
-    auto& old_node = unity_services_table.find(topic);
+    auto old_node = unity_services_table.find(topic);
     if (old_node != unity_services_table.end()) {
         tcp_server->unregister_node(std::reinterpret_pointer_cast<RosNode>(old_node->second));
     }

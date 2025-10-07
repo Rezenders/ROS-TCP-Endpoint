@@ -57,14 +57,14 @@ void UnityTcpSender::send_topic_list(const SysCommand::TopicsResponse& topics_re
 	add_to_queue(serialize_command(SysCommand::k_SysCommand_TopicList, SysCommand::serialize_TopicsResponse(topics_response)), Reliability::Reliable);
 }
 
-void UnityTcpSender::start_sender(SOCKET socket, std::shared_ptr<StatusEvent>& halt_event) {
+void UnityTcpSender::start_sender(SOCKET socket, std::shared_ptr<StatusEvent> halt_event) {
 	// send a handshake message to confirm the connection and version number
 	add_to_queue(serialize_command(SysCommand::k_SysCommand_Handshake, SysCommand::serialize_Handshake()), Reliability::Reliable);
 
 	std::thread(&UnityTcpSender::sender_loop, this, socket, halt_event).detach();
 }
 
-void UnityTcpSender::sender_loop(SOCKET socket, std::shared_ptr<StatusEvent>& halt_event) {
+void UnityTcpSender::sender_loop(SOCKET socket, std::shared_ptr<StatusEvent> halt_event) {
 	std::string data;
 
 	try {
@@ -78,9 +78,9 @@ void UnityTcpSender::sender_loop(SOCKET socket, std::shared_ptr<StatusEvent>& ha
 				}
 			}
 		}
-	} catch (std::exception ex) {
-		tcp_server->log_error("exception occured in UnityTcpSender: %s", ex.what());
-	}
+    } catch (const std::exception& ex) {
+        tcp_server->log_error("exception occured in UnityTcpSender: %s", ex.what());
+    }
 	// make sure this one is called
 	halt_event->set();
 }
@@ -156,7 +156,7 @@ void UnityTcpSender::append_size(std::ostringstream& oss, uint32_t size) {
 
 void UnityTcpSender::append_string(std::ostringstream& oss, const std::string& data) {
 	uint32_t size = static_cast<uint32_t>(data.size());
-	append_size(oss, static_cast<uint32_t>(data.size()));
+	append_size(oss, size);
 	oss << data;
 }
 void UnityTcpSender::append_ros_data(std::ostringstream& oss, const RosData& ros_data) {
@@ -164,4 +164,3 @@ void UnityTcpSender::append_ros_data(std::ostringstream& oss, const RosData& ros
 	append_size(oss, size);
 	oss.write(reinterpret_cast<const char*>(ros_data.data()), size);
 }
-

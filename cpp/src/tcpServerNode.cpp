@@ -11,21 +11,21 @@ TcpServerNode::TcpServerNode(const std::string &name) : rclcpp::Node(name) {}
 bool TcpServerNode::init(int connections, const std::string &tcp_ip, int tcp_port) {
 	std::string param_ip = declare_parameter<std::string>(rosIPParameter, "0.0.0.0");
 	int param_port = static_cast<int>(declare_parameter<int>(rosPortParameter, 10000));
-    
+
     if (!tcp_ip.empty()) {
 		RCUTILS_LOG_INFO("Using ROS_IP override from constructor: %s", tcp_ip.c_str());
         this->tcp_ip = tcp_ip;
     } else {
         this->tcp_ip = param_ip;
     }
-    
+
     if (tcp_port != 0) {
 		RCUTILS_LOG_INFO("Using ROS_TCP_PORT override from constructor: %d", tcp_port);
         this->tcp_port = tcp_port;
     } else {
         this->tcp_port = param_port;
     }
-    
+
     this->connections = connections;
 
 #ifdef _WIN32
@@ -95,7 +95,7 @@ void TcpServerNode::log_debug(const char* msg, ...) {
     va_start(args, msg);
     ok = get_log_string(msg, args);
     va_end(args);
-    if (ok) RCUTILS_LOG_DEBUG(log_buffer);
+    if (ok) RCUTILS_LOG_DEBUG("%s", log_buffer);
 }
 
 void TcpServerNode::log_info(const char *msg, ...) {
@@ -105,7 +105,7 @@ void TcpServerNode::log_info(const char *msg, ...) {
     va_start(args, msg);
     ok = get_log_string(msg, args);
     va_end(args);
-    if (ok) RCUTILS_LOG_INFO(log_buffer);
+    if (ok) RCUTILS_LOG_INFO("%s", log_buffer);
 }
 
 void TcpServerNode::log_warning(const char* msg, ...) {
@@ -115,7 +115,7 @@ void TcpServerNode::log_warning(const char* msg, ...) {
     va_start(args, msg);
     ok = get_log_string(msg, args);
     va_end(args);
-    if (ok) RCUTILS_LOG_WARN(log_buffer);
+    if (ok) RCUTILS_LOG_WARN("%s", log_buffer);
 }
 
 void TcpServerNode::log_error(const char *msg, ...) {
@@ -125,7 +125,7 @@ void TcpServerNode::log_error(const char *msg, ...) {
     va_start(args, msg);
     ok = get_log_string(msg, args);
     va_end(args);
-    if (ok) RCUTILS_LOG_ERROR(log_buffer);
+    if (ok) RCUTILS_LOG_ERROR("%s", log_buffer);
 }
 
 
@@ -179,7 +179,7 @@ void TcpServerNode::listen_loop() {
             {
                 const std::lock_guard<std::mutex> clients_lock(client_threads_mutex);
                 // remove finished threads
-                for (auto& iter = client_threads.begin(); iter != client_threads.end(); iter++) {
+                for (auto iter = client_threads.begin(); iter != client_threads.end(); iter++) {
                     if ((*iter)->is_finished()) {
                         (*iter)->wait();
                         iter = client_threads.erase(iter);

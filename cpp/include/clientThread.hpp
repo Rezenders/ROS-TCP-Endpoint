@@ -29,7 +29,7 @@ public:
 	std::pair<std::string, std::string> read_message();
 
 	void send_ros_service_request(int srv_id, const std::string& destination, const RosData&data);
-	void service_call_thread(int srv_id, const std::string& destination, const RosData&data, std::shared_ptr<RosService>& rosService);
+	void service_call_thread(int srv_id, const std::string& destination, const RosData&data, std::shared_ptr<RosService> rosService);
 	std::shared_ptr<RosNode> get_node_for_topic(const std::string& topic);
 
 private:
