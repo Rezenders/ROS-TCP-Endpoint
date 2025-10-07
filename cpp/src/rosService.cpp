@@ -50,8 +50,9 @@ bool RosService::send(const RosData &request, RosData &response) {
         }
         */
 
-    if (!RosSerialization::serialize_message(future_result.get(), response, service_response_members, service_ts->response_typesupport))
+    if (!RosSerialization::serialize_message(future_result.get(), response, service_response_members, service_ts->response_typesupport)) {
         return false;
+    }
 
 	return true;
 }

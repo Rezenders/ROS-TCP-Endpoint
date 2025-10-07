@@ -57,30 +57,30 @@ void UnityTcpSender::send_topic_list(const SysCommand::TopicsResponse& topics_re
 	add_to_queue(serialize_command(SysCommand::k_SysCommand_TopicList, SysCommand::serialize_TopicsResponse(topics_response)), Reliability::Reliable);
 }
 
-void UnityTcpSender::start_sender(SOCKET socket, std::shared_ptr<StatusEvent>& halt_event) {
+void UnityTcpSender::start_sender(SOCKET socket, std::shared_ptr<StatusEvent> halt_event) {
 	// send a handshake message to confirm the connection and version number
 	add_to_queue(serialize_command(SysCommand::k_SysCommand_Handshake, SysCommand::serialize_Handshake()), Reliability::Reliable);
 
 	std::thread(&UnityTcpSender::sender_loop, this, socket, halt_event).detach();
 }
 
-void UnityTcpSender::sender_loop(SOCKET socket, std::shared_ptr<StatusEvent>& halt_event) {
+void UnityTcpSender::sender_loop(SOCKET socket, std::shared_ptr<StatusEvent> halt_event) {
 	std::string data;
 
 	try {
 		while (!halt_event->is_set()) {
 			if (try_remove_from_queue(data)) {
 				if (SOCKET_ERROR == send(socket, data.c_str(), static_cast<int>(data.size()), 0)) {
-					int err = WSAGetLastError();
+					int err = last_socket_error();
 					tcp_server->log_error("socket send error %d", err);
 					if (WSAECONNABORTED == err || WSAECONNRESET == err)
 						break;
 				}
 			}
 		}
-	} catch (std::exception ex) {
-		tcp_server->log_error("exception occured in UnityTcpSender: %s", ex.what());
-	}
+    } catch (const std::exception& ex) {
+        tcp_server->log_error("exception occured in UnityTcpSender: %s", ex.what());
+    }
 	// make sure this one is called
 	halt_event->set();
 }
@@ -106,7 +106,7 @@ std::string UnityTcpSender::serialize_command(const std::string& command, const 
 	//little endian.  uint32 taille de la command, puis les octets de la commande
 	std::ostringstream oss;
 	append_string(oss, command);
-	//todo: encodage utf - 8 des params, à voir si nécessaire
+	//todo: encodage utf - 8 des params,  voir si ncessaire
 	append_string(oss, params);
 
 	return oss.str();
@@ -156,7 +156,7 @@ void UnityTcpSender::append_size(std::ostringstream& oss, uint32_t size) {
 
 void UnityTcpSender::append_string(std::ostringstream& oss, const std::string& data) {
 	uint32_t size = static_cast<uint32_t>(data.size());
-	append_size(oss, static_cast<uint32_t>(data.size()));
+	append_size(oss, size);
 	oss << data;
 }
 void UnityTcpSender::append_ros_data(std::ostringstream& oss, const RosData& ros_data) {
@@ -164,4 +164,3 @@ void UnityTcpSender::append_ros_data(std::ostringstream& oss, const RosData& ros
 	append_size(oss, size);
 	oss.write(reinterpret_cast<const char*>(ros_data.data()), size);
 }
-
