@@ -179,10 +179,12 @@ void TcpServerNode::listen_loop() {
             {
                 const std::lock_guard<std::mutex> clients_lock(client_threads_mutex);
                 // remove finished threads
-                for (auto iter = client_threads.begin(); iter != client_threads.end(); iter++) {
+                for (auto iter = client_threads.begin(); iter != client_threads.end();) {
                     if ((*iter)->is_finished()) {
                         (*iter)->wait();
                         iter = client_threads.erase(iter);
+                    } else {
+                        ++iter;
                     }
                 }
                 client_threads.insert(clientThread);
