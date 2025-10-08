@@ -19,18 +19,22 @@ ClientThread::ClientThread(TcpServerNode* tcp_server, SOCKET socket, const socka
 
 void ClientThread::start() {
     halt_event = std::make_shared<StatusEvent>();
+    start_publish_worker();
     thread = std::thread(&ClientThread::run, this);
 }
 
 void ClientThread::halt() {
     halt_event->set();
+    publish_queue_cv.notify_all();
 }
 
 void ClientThread::wait() {
-	if (thread.joinable()) {
-        halt_event->set();
-		thread.join();
-	}
+    halt_event->set();
+    publish_queue_cv.notify_all();
+    if (thread.joinable()) {
+        thread.join();
+    }
+    stop_publish_worker();
     halt_event.reset();
 }
 
@@ -174,7 +178,7 @@ void ClientThread::run() {
                     auto publisher = publishers_table.find(destination);
                     if (publisher != publishers_table.end()) {
                         if (get_ros_data(data, ros_data)) {
-                            publisher->second->send(ros_data);
+                            enqueue_publish_job(publisher->second, std::move(ros_data));
                         } else {
                             std::string error_msg = "Invalid ros data, destination : " + destination;
                             unity_tcp_sender.send_unity_error(error_msg);
@@ -197,6 +201,8 @@ void ClientThread::run() {
         tcp_server->log_error("exception occured in ClientThread: %s", ex.what());
     }
     halt_event->set();
+    publish_queue_cv.notify_all();
+    stop_publish_worker();
     closesocket(socket);
     unregister_all();
     if (remote_addr[0] == '\0') {
@@ -207,6 +213,91 @@ void ClientThread::run() {
     tcp_server->log_info("Disconnected from %s:%hu", remote_addr.data(), ntohs(remote.sin_port));
 
     run_is_finished = true;
+}
+
+void ClientThread::publish_worker_loop() {
+    while (true) {
+        PublishJob job;
+        {
+            std::unique_lock<std::mutex> lock(publish_queue_mutex);
+            // Block here until the queue has work to process or we have been asked
+            // to stop, keeping the worker thread idle while there is nothing to do.
+            publish_queue_cv.wait(lock, [&]() {
+                return !publish_queue.empty() || (halt_event && halt_event->is_set());
+            });
+
+            if (publish_queue.empty()) {
+                if (halt_event && halt_event->is_set()) {
+                    break;
+                }
+                continue;
+            }
+
+            // Grab the next job and release the lock so ROS publishing can happen
+            // without holding the mutex.
+            job = std::move(publish_queue.front());
+            publish_queue.pop_front();
+        }
+
+        if (job.publisher) {
+            // Run the actual ROS publish on the worker thread.
+            job.publisher->send(job.data);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(publish_queue_mutex);
+            // Once the queue drains we allow the warning flag to reset so a future
+            // overflow can emit another single warning.
+            if (publish_queue.empty()) {
+                publish_queue_drop_warning = false;
+            }
+        }
+    }
+}
+
+void ClientThread::start_publish_worker() {
+    if (publish_worker_started) {
+        return;
+    }
+    publish_worker_started = true;
+    publish_queue_drop_warning = false;
+    // Launch the worker thread that handles RosPublisher::send() calls off of the
+    // network receive thread so Unity can keep transmitting without blocking.
+    publish_worker_thread = std::thread(&ClientThread::publish_worker_loop, this);
+}
+
+void ClientThread::stop_publish_worker() {
+    publish_queue_cv.notify_all();
+    if (publish_worker_thread.joinable()) {
+        // Joining here guarantees the queue is flushed before we reset state or
+        // destroy any of the objects the jobs might reference.
+        publish_worker_thread.join();
+    }
+    publish_worker_started = false;
+}
+
+void ClientThread::enqueue_publish_job(std::shared_ptr<RosPublisher> publisher, RosData&& data) {
+    if (!publisher) {
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(publish_queue_mutex);
+        if (publish_queue.size() >= MAX_PUBLISH_QUEUE_SIZE) {
+            // Queue is full, drop the oldest message so the network thread never
+            // blocks and we keep Unity publishes flowing.
+            publish_queue.pop_front();
+            if (!publish_queue_drop_warning) {
+                tcp_server->log_warning("Publish queue full; dropping oldest message to maintain responsiveness.");
+                publish_queue_drop_warning = true;
+            }
+        }
+        // Store the newest publish request for the worker thread to consume.
+        publish_queue.emplace_back(PublishJob{ publisher, std::move(data) });
+    }
+
+    // Wake the worker so it can service the newly queued publish.
+    publish_queue_cv.notify_one();
 }
 
 void ClientThread::register_subscriber(const std::string& topic, const std::string& message_type) {

@@ -4,6 +4,9 @@
 #include <map>
 #include <regex>
 #include <functional>
+#include <deque>
+#include <mutex>
+#include <condition_variable>
 #include "socket_utils.hpp"
 #include "unityTcpSender.hpp"
 #include "rosSubscriber.hpp"
@@ -34,6 +37,10 @@ public:
 
 private:
 	void run();
+	void publish_worker_loop();
+	void start_publish_worker();
+	void stop_publish_worker();
+	void enqueue_publish_job(std::shared_ptr<RosPublisher> publisher, RosData&& data);
 
 	void register_subscriber(const std::string& topic, const std::string& message_type);
 	void register_publisher(const std::string& topic, const std::string& message_type, int queue_size, bool latch);
@@ -62,6 +69,22 @@ private:
 	std::map<std::string, std::shared_ptr<RosService>> ros_services_table;
 	std::map<std::string, std::shared_ptr<UnityService>> unity_services_table;
 
+	// Small POD that packages the target publisher together with the
+	// payload so the worker thread can execute RosPublisher::send() later.
+	struct PublishJob {
+		std::shared_ptr<RosPublisher> publisher;
+		RosData data;
+	};
+
+	// Background worker objects that drain the queue of PublishJob entries.
+	std::thread publish_worker_thread;
+	std::mutex publish_queue_mutex;
+	std::condition_variable publish_queue_cv;
+	std::deque<PublishJob> publish_queue;
+	bool publish_worker_started{ false };
+	// Helps prevent spamming the logs when the queue overflows repeatedly.
+	bool publish_queue_drop_warning{ false };
+
 	RosData rosData;
 	int pending_srv_id{ 0 };
 	bool pending_srv_is_request{ false };
@@ -69,4 +92,7 @@ private:
 
 	static constexpr int NO_PENDING_SERVICE_ID = -1;
 	static const std::string ROS2_HEADER;
+	// Upper bound for how many pending publishes we will buffer before
+	// dropping the oldest message to keep the network thread responsive.
+	static constexpr std::size_t MAX_PUBLISH_QUEUE_SIZE = 128;
 };
