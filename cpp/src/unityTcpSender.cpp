@@ -116,15 +116,15 @@ void UnityTcpSender::add_to_queue(const std::string& data, Reliability reliabili
 	{
 		const std::lock_guard<std::mutex> qlock(queue_lock);
 		switch (reliability) {
-		case Reliability::Reliable:
-			reliable_queue.push(data);
-			break;
-		case Reliability::BestEffort:
-			if (best_effort_queue.size() == best_effort_queue_max_size) {
-				// if queue is already full, remove oldest element
-				best_effort_queue.pop();
-			}
-			best_effort_queue.push(data);
+			case Reliability::Reliable:
+				reliable_queue.push(data);
+				break;
+			case Reliability::BestEffort:
+				if (best_effort_queue.size() == best_effort_queue_max_size) {
+					// if queue is already full, remove oldest element
+					best_effort_queue.pop();
+				}
+				best_effort_queue.push(data);
 		}
 	}
 	queue_condition.notify_one();

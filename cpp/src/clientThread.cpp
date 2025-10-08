@@ -64,10 +64,12 @@ int32_t ClientThread::read_int32() {
 }
 
 std::string ClientThread::read_string() {
+    // first read the size of the string
     int32_t str_len = read_int32();
     std::string result{};
     if (str_len > 0) {
         result.resize(str_len);
+        // read the string itself
         recvall(result.data(), str_len);
         // trim right to remove padding and null termination
         while (!result.empty() && result.back() == '\0') {
@@ -81,11 +83,16 @@ std::pair<std::string, std::string> ClientThread::read_message() {
     /*  Decode destination and full message size from socket connection.
         Grab bytes in chunks until full message has been read.
         */
+
+    // read destination string
     std::string destination = read_string();
+
+    // read data size
     int32_t full_message_size = read_int32();
     std::string data{};
     if (full_message_size > 0) {
         data.resize(full_message_size);
+        // read data
         recvall(data.data(), full_message_size);
     }
     return std::make_pair(destination, data);
@@ -136,9 +143,9 @@ void ClientThread::run() {
         ROS service response.
 
         Message format is expected to arrive as
-        int: length of destination bytes
+        int32 : length of destination bytes
         str : destination.Publisher topic, Subscriber topic, Service name, etc
-        int : size of full message
+        int32 : size of full message
         msg : the ROS msg type as bytes
         */
 
@@ -156,9 +163,12 @@ void ClientThread::run() {
     try {
         RosData ros_data{};
         while (!halt_event->is_set()) {
+
+            // read message from socket
             const auto [destination, data] = read_message();
             if (!destination.empty()) { // ignore keepalive message (empty destination), listen for more
-                //tcp_server->log_debug("Received %d bytes for %s", data.size(), destination);
+                // tcp_server->log_debug("Received %d bytes for %s", data.size(), destination);
+
                 // Process this message that was sent from Unity
                 if (pending_srv_id != NO_PENDING_SERVICE_ID) {
                     // if we've been told that the next message will be a service request/response, process it as such
