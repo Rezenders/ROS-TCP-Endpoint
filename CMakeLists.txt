@@ -25,8 +25,11 @@ add_executable(${PROJECT_NAME}
   cpp/src/sysCommands.cpp
   cpp/src/generic_service.cpp
   )
-ament_target_dependencies(${PROJECT_NAME} rclcpp)
-target_include_directories(${PROJECT_NAME} 
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+  rclcpp::rclcpp
+)
+target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp/include>
     $<INSTALL_INTERFACE:include>

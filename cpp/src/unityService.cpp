@@ -16,10 +16,10 @@ UnityService::UnityService(UnityTcpSender* unity_tcp_sender, const std::string& 
     const auto service_response_ts_introspection = get_message_typesupport_handle(service_ts->response_typesupport, rosidl_typesupport_introspection_cpp::typesupport_identifier);
     service_response_members = reinterpret_cast<const rosidl_typesupport_introspection_cpp::MessageMembers*>(service_response_ts_introspection->data);
 
-    service = create_generic_service(
-        *this, 
-        service_topic, 
-        service_ts, 
+    service = ::create_generic_service(
+        *this,
+        service_topic,
+        service_ts,
         service_request_members,
         [this] (GenericService::SharedRequest request, GenericService::SharedResponse &response) { return handle_request(request, response); }
     );
